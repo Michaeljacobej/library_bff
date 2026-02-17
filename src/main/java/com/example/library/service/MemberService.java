@@ -17,7 +17,8 @@ public class MemberService {
 
   public List<Member> list() {
     List<Map<String, Object>> rows = sqlAdapterClient.query(
-        "select id, name, email, role_id from members order by id",
+        "select id, name, email, role_id from members "
+            + "where deleted_at is null order by id",
         Map.of()
     );
     return rows.stream().map(MemberService::mapMember).toList();
@@ -25,7 +26,8 @@ public class MemberService {
 
   public Member get(Long id) {
     List<Map<String, Object>> rows = sqlAdapterClient.query(
-        "select id, name, email, role_id from members where id = :id",
+      "select id, name, email, role_id from members "
+        + "where id = :id and deleted_at is null",
         Map.of("id", id)
     );
     if (rows.isEmpty()) {
@@ -81,7 +83,11 @@ public class MemberService {
   public void delete(Long id) {
     Map<String, Object> params = new HashMap<>();
     params.put("id", id);
-    int rows = sqlAdapterClient.execute("delete from members where id = :id", params);
+    params.put("deletedAt", java.time.Instant.now());
+    int rows = sqlAdapterClient.execute(
+        "update members set deleted_at = :deletedAt where id = :id and deleted_at is null",
+        params
+    );
     if (rows <= 0) {
       throw new NotFoundException("Member not found");
     }
@@ -89,7 +95,7 @@ public class MemberService {
 
   private boolean existsByEmail(String email) {
     List<Map<String, Object>> rows = sqlAdapterClient.query(
-        "select id from members where email = :email",
+        "select id from members where email = :email and deleted_at is null",
         Map.of("email", email)
     );
     return !rows.isEmpty();
@@ -97,7 +103,8 @@ public class MemberService {
 
   private Member getByEmail(String email) {
     List<Map<String, Object>> rows = sqlAdapterClient.query(
-        "select id, name, email, role_id from members where email = :email",
+      "select id, name, email, role_id from members "
+        + "where email = :email and deleted_at is null",
         Map.of("email", email)
     );
     if (rows.isEmpty()) {

@@ -48,7 +48,8 @@ public class LoanService {
     Member member = getMember(memberId);
 
     if (book.getAvailableCopies() <= 0) {
-      throw new BusinessRuleException("No available copies to borrow");
+      Long reservationId = createReservation(book, member);
+      throw new BusinessRuleException("No available copies; reservation created: " + reservationId);
     }
 
     long activeLoans = countActiveLoans(memberId);
@@ -118,12 +119,53 @@ public class LoanService {
         bookParams
     );
 
+    fulfillNextReservation(loan.getBook().getId());
+
     return get(loanId);
+  }
+
+  public List<Loan> search(Long memberId, Long bookId, String status, Instant from, Instant to) {
+    StringBuilder sql = new StringBuilder(
+        "select id, book_id, member_id, borrowed_at, due_date, returned_at from loans where 1=1");
+    Map<String, Object> params = new HashMap<>();
+
+    if (memberId != null) {
+      sql.append(" and member_id = :memberId");
+      params.put("memberId", memberId);
+    }
+    if (bookId != null) {
+      sql.append(" and book_id = :bookId");
+      params.put("bookId", bookId);
+    }
+    if (from != null) {
+      sql.append(" and borrowed_at >= :from");
+      params.put("from", from);
+    }
+    if (to != null) {
+      sql.append(" and borrowed_at <= :to");
+      params.put("to", to);
+    }
+    if (status != null && !status.isBlank()) {
+      String normalized = status.trim().toUpperCase();
+      if ("ACTIVE".equals(normalized)) {
+        sql.append(" and returned_at is null");
+      } else if ("RETURNED".equals(normalized)) {
+        sql.append(" and returned_at is not null");
+      } else if ("OVERDUE".equals(normalized)) {
+        sql.append(" and returned_at is null and due_date < :now");
+        params.put("now", Instant.now());
+      }
+    }
+
+    sql.append(" order by borrowed_at desc");
+    List<Map<String, Object>> rows = sqlAdapterClient.query(sql.toString(), params);
+    return rows.stream().map(LoanService::mapLoan).toList();
   }
 
   private Book getBook(Long id) {
     List<Map<String, Object>> rows = sqlAdapterClient.query(
-        "select id, title, author, isbn, total_copies, available_copies from books where id = :id",
+      "select id, title, author, isbn, total_copies, available_copies from books "
+        + "where id = :id and deleted_at is null",
         Map.of("id", id)
     );
     if (rows.isEmpty()) {
@@ -142,7 +184,8 @@ public class LoanService {
 
   private Member getMember(Long id) {
     List<Map<String, Object>> rows = sqlAdapterClient.query(
-        "select id, name, email, role_id from members where id = :id",
+      "select id, name, email, role_id from members "
+        + "where id = :id and deleted_at is null",
         Map.of("id", id)
     );
     if (rows.isEmpty()) {
@@ -194,6 +237,106 @@ public class LoanService {
       throw new NotFoundException("Loan not found after insert");
     }
     return mapLoan(rows.get(0));
+  }
+
+  private Long createReservation(Book book, Member member) {
+    String roleName = getRoleName(member.getRoleId());
+    Instant now = Instant.now();
+    Map<String, Object> params = new HashMap<>();
+    params.put("bookId", book.getId());
+    params.put("memberId", member.getId());
+    params.put("roleName", roleName);
+    params.put("status", "PENDING");
+    params.put("createdAt", now);
+
+    int rows = sqlAdapterClient.execute(
+        "insert into reservations (book_id, member_id, role_name, status, created_at) "
+            + "values (:bookId, :memberId, :roleName, :status, :createdAt)",
+        params
+    );
+    if (rows <= 0) {
+      throw new BusinessRuleException("Reservation insert failed");
+    }
+
+    List<Map<String, Object>> result = sqlAdapterClient.query(
+        "select id from reservations where book_id = :bookId and member_id = :memberId "
+            + "and created_at = :createdAt",
+        Map.of("bookId", book.getId(), "memberId", member.getId(), "createdAt", now)
+    );
+    if (result.isEmpty()) {
+      throw new BusinessRuleException("Reservation not found after insert");
+    }
+    return toLong(result.get(0), "id");
+  }
+
+  private void fulfillNextReservation(Long bookId) {
+    Map<String, Object> params = new HashMap<>();
+    params.put("bookId", bookId);
+    List<Map<String, Object>> rows = sqlAdapterClient.query(
+        "select id, book_id, member_id, role_name, created_at from reservations "
+            + "where book_id = :bookId and status = 'PENDING' "
+            + "order by case role_name when 'ADMIN' then 1 when 'LIBRARIAN' then 2 else 3 end, created_at asc",
+        params
+    );
+    if (rows.isEmpty()) {
+      return;
+    }
+
+    Map<String, Object> reservation = rows.get(0);
+    Long reservationId = toLong(reservation, "id");
+    Long memberId = toLong(reservation, "member_id");
+    Instant now = Instant.now();
+
+    Map<String, Object> updateParams = new HashMap<>();
+    updateParams.put("id", reservationId);
+    updateParams.put("fulfilledAt", now);
+    int updated = sqlAdapterClient.execute(
+        "update reservations set status = 'FULFILLED', fulfilled_at = :fulfilledAt "
+            + "where id = :id and status = 'PENDING'",
+        updateParams
+    );
+    if (updated <= 0) {
+      return;
+    }
+
+    Book book = getBook(bookId);
+    Member member = getMember(memberId);
+    if (book.getAvailableCopies() <= 0) {
+      return;
+    }
+
+    Instant borrowedAt = Instant.now();
+    Instant dueDate = borrowedAt.plus(borrowingProperties.getMaxLoanDays(), ChronoUnit.DAYS);
+    Map<String, Object> bookParams = new HashMap<>();
+    bookParams.put("id", bookId);
+    sqlAdapterClient.execute(
+        "update books set available_copies = available_copies - 1 "
+            + "where id = :id and available_copies > 0",
+        bookParams
+    );
+
+    Map<String, Object> loanParams = new HashMap<>();
+    loanParams.put("bookId", bookId);
+    loanParams.put("memberId", memberId);
+    loanParams.put("borrowedAt", borrowedAt);
+    loanParams.put("dueDate", dueDate);
+    sqlAdapterClient.execute(
+        "insert into loans (book_id, member_id, borrowed_at, due_date, returned_at) "
+            + "values (:bookId, :memberId, :borrowedAt, :dueDate, null)",
+        loanParams
+    );
+  }
+
+  private String getRoleName(Long roleId) {
+    List<Map<String, Object>> rows = sqlAdapterClient.query(
+        "select name from roles where id = :id",
+        Map.of("id", roleId)
+    );
+    if (rows.isEmpty()) {
+      return "MEMBER";
+    }
+    Object name = rows.get(0).get("name");
+    return name == null ? "MEMBER" : name.toString();
   }
 
   private static Loan mapLoan(Map<String, Object> row) {

@@ -17,7 +17,8 @@ public class BookService {
 
   public List<Book> list() {
     List<Map<String, Object>> rows = sqlAdapterClient.query(
-        "select id, title, author, isbn, total_copies, available_copies from books order by id",
+        "select id, title, author, isbn, total_copies, available_copies from books "
+            + "where deleted_at is null order by id",
         Map.of()
     );
     return rows.stream().map(BookService::mapBook).toList();
@@ -25,7 +26,8 @@ public class BookService {
 
   public Book get(Long id) {
     List<Map<String, Object>> rows = sqlAdapterClient.query(
-        "select id, title, author, isbn, total_copies, available_copies from books where id = :id",
+      "select id, title, author, isbn, total_copies, available_copies from books "
+        + "where id = :id and deleted_at is null",
         Map.of("id", id)
     );
     if (rows.isEmpty()) {
@@ -91,7 +93,11 @@ public class BookService {
   public void delete(Long id) {
     Map<String, Object> params = new HashMap<>();
     params.put("id", id);
-    int rows = sqlAdapterClient.execute("delete from books where id = :id", params);
+    params.put("deletedAt", java.time.Instant.now());
+    int rows = sqlAdapterClient.execute(
+        "update books set deleted_at = :deletedAt where id = :id and deleted_at is null",
+        params
+    );
     if (rows <= 0) {
       throw new NotFoundException("Book not found");
     }

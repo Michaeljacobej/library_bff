@@ -53,11 +53,19 @@ mvn test
 
 ## Authentication
 
-Basic auth users (configured in code):
+Obtain a JWT:
 
-- admin / admin-pass (ROLE_ADMIN)
-- librarian / librarian-pass (ROLE_LIBRARIAN)
-- member / member-pass (ROLE_MEMBER)
+```bash
+curl -X POST http://localhost:8080/auth/login \
+	-H "Content-Type: application/json" \
+	-d '{"username":"admin","password":"admin-pass"}'
+```
+
+Use the token:
+
+```bash
+curl -H "Authorization: Bearer <token>" http://localhost:8080/api/books
+```
 
 ## API Documentation
 

@@ -8,6 +8,11 @@ app:
   sql-adapter:
     base-url: http://localhost:8081
     base-path: /api
+  security:
+    jwt:
+      secret: abcde1234567890
+      expiration: 2m
+      issuer: library-bff
 
 management:
   endpoints:

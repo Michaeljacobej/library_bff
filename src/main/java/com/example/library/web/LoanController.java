@@ -5,6 +5,7 @@ import com.example.library.service.LoanService;
 import com.example.library.web.dto.LoanRequest;
 import com.example.library.web.dto.LoanResponse;
 import jakarta.validation.Valid;
+import java.time.Instant;
 import java.util.List;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -39,6 +41,19 @@ public class LoanController {
   @PreAuthorize("hasAnyRole('ADMIN','LIBRARIAN','MEMBER')")
   public LoanResponse borrow(@Valid @RequestBody LoanRequest request) {
     return toResponse(loanService.borrow(request.bookId(), request.memberId()));
+  }
+
+  @GetMapping("/search")
+  @PreAuthorize("hasAnyRole('ADMIN','LIBRARIAN')")
+  public List<LoanResponse> search(@RequestParam(required = false) Long memberId,
+                                   @RequestParam(required = false) Long bookId,
+                                   @RequestParam(required = false) String status,
+                                   @RequestParam(required = false) Instant from,
+                                   @RequestParam(required = false) Instant to) {
+    return loanService.search(memberId, bookId, status, from, to)
+        .stream()
+        .map(LoanController::toResponse)
+        .toList();
   }
 
   @PostMapping("/{id}/return")
