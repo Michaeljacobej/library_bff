@@ -11,10 +11,18 @@ class InMemorySqlAdapterClient implements SqlAdapterClient {
   private long bookSeq = 1L;
   private long memberSeq = 1L;
   private long loanSeq = 1L;
+  private long roleSeq = 1L;
 
   private final Map<Long, Map<String, Object>> books = new HashMap<>();
   private final Map<Long, Map<String, Object>> members = new HashMap<>();
   private final Map<Long, Map<String, Object>> loans = new HashMap<>();
+  private final Map<Long, Map<String, Object>> roles = new HashMap<>();
+
+  InMemorySqlAdapterClient() {
+    insertRole("ADMIN");
+    insertRole("LIBRARIAN");
+    insertRole("MEMBER");
+  }
 
   @Override
   public int execute(String sql, Map<String, Object> params) {
@@ -87,6 +95,7 @@ class InMemorySqlAdapterClient implements SqlAdapterClient {
       row.put("id", id);
       row.put("name", params.get("name"));
       row.put("email", params.get("email"));
+      row.put("role_id", params.get("roleId"));
       members.put(id, row);
       return 1;
     }
@@ -99,6 +108,7 @@ class InMemorySqlAdapterClient implements SqlAdapterClient {
       }
       row.put("name", params.get("name"));
       row.put("email", params.get("email"));
+      row.put("role_id", params.get("roleId"));
       return 1;
     }
 
@@ -165,6 +175,17 @@ class InMemorySqlAdapterClient implements SqlAdapterClient {
         return findBy(members, "email", email);
       }
       return new ArrayList<>(members.values());
+    }
+
+    if (normalized.startsWith("select id from roles")) {
+      if (normalized.contains("where name")) {
+        String name = String.valueOf(params.get("name"));
+        return findBy(roles, "name", name).stream().map(this::onlyId).toList();
+      }
+      if (normalized.contains("where id")) {
+        Long id = toLong(params.get("id"));
+        return rowsOrEmpty(roles.get(id)).stream().map(this::onlyId).toList();
+      }
     }
 
     if (normalized.startsWith("select id from members")) {
@@ -237,6 +258,14 @@ class InMemorySqlAdapterClient implements SqlAdapterClient {
     Map<String, Object> result = new HashMap<>();
     result.put("id", row.get("id"));
     return result;
+  }
+
+  private void insertRole(String name) {
+    long id = roleSeq++;
+    Map<String, Object> row = new HashMap<>();
+    row.put("id", id);
+    row.put("name", name);
+    roles.put(id, row);
   }
 
   private String normalize(String sql) {

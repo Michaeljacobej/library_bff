@@ -17,7 +17,7 @@ public class MemberService {
 
   public List<Member> list() {
     List<Map<String, Object>> rows = sqlAdapterClient.query(
-        "select id, name, email from members order by id",
+        "select id, name, email, role_id from members order by id",
         Map.of()
     );
     return rows.stream().map(MemberService::mapMember).toList();
@@ -25,7 +25,7 @@ public class MemberService {
 
   public Member get(Long id) {
     List<Map<String, Object>> rows = sqlAdapterClient.query(
-        "select id, name, email from members where id = :id",
+        "select id, name, email, role_id from members where id = :id",
         Map.of("id", id)
     );
     if (rows.isEmpty()) {
@@ -38,12 +38,14 @@ public class MemberService {
     if (existsByEmail(member.getEmail())) {
       throw new BusinessRuleException("Email already exists");
     }
+    Long roleId = requireRoleId(member.getRoleId());
     Map<String, Object> params = new HashMap<>();
     params.put("name", member.getName());
     params.put("email", member.getEmail());
+    params.put("roleId", roleId);
 
     int rows = sqlAdapterClient.execute(
-        "insert into members (name, email) values (:name, :email)",
+        "insert into members (name, email, role_id) values (:name, :email, :roleId)",
         params
     );
     if (rows <= 0) {
@@ -58,13 +60,15 @@ public class MemberService {
     if (!existing.getEmail().equals(update.getEmail()) && existsByEmail(update.getEmail())) {
       throw new BusinessRuleException("Email already exists");
     }
+    Long roleId = requireRoleId(update.getRoleId());
     Map<String, Object> params = new HashMap<>();
     params.put("id", id);
     params.put("name", update.getName());
     params.put("email", update.getEmail());
+    params.put("roleId", roleId);
 
     int rows = sqlAdapterClient.execute(
-        "update members set name = :name, email = :email where id = :id",
+        "update members set name = :name, email = :email, role_id = :roleId where id = :id",
         params
     );
     if (rows <= 0) {
@@ -93,7 +97,7 @@ public class MemberService {
 
   private Member getByEmail(String email) {
     List<Map<String, Object>> rows = sqlAdapterClient.query(
-        "select id, name, email from members where email = :email",
+        "select id, name, email, role_id from members where email = :email",
         Map.of("email", email)
     );
     if (rows.isEmpty()) {
@@ -107,7 +111,26 @@ public class MemberService {
     member.setId(toLong(row, "id"));
     member.setName(toString(row, "name"));
     member.setEmail(toString(row, "email"));
+    member.setRoleId(toLong(row, "role_id"));
     return member;
+  }
+
+  private Long requireRoleId(Long roleId) {
+    if (roleId == null) {
+      throw new BusinessRuleException("roleId is required");
+    }
+    if (!roleExists(roleId)) {
+      throw new BusinessRuleException("Role not found");
+    }
+    return roleId;
+  }
+
+  private boolean roleExists(Long roleId) {
+    List<Map<String, Object>> rows = sqlAdapterClient.query(
+        "select id from roles where id = :id",
+        Map.of("id", roleId)
+    );
+    return !rows.isEmpty();
   }
 
   private static Long toLong(Map<String, Object> row, String key) {

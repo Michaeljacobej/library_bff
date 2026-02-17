@@ -13,6 +13,8 @@ public class Member {
   @Email
   private String email;
 
+  private Long roleId;
+
   public Long getId() {
     return id;
   }
@@ -35,5 +37,13 @@ public class Member {
 
   public void setEmail(String email) {
     this.email = email;
+  }
+
+  public Long getRoleId() {
+    return roleId;
+  }
+
+  public void setRoleId(Long roleId) {
+    this.roleId = roleId;
   }
 }

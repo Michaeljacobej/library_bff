@@ -43,6 +43,7 @@ public class MemberController {
     Member member = new Member();
     member.setName(request.name());
     member.setEmail(request.email());
+    member.setRoleId(request.roleId());
     return toResponse(memberService.create(member));
   }
 
@@ -52,6 +53,7 @@ public class MemberController {
     Member member = new Member();
     member.setName(request.name());
     member.setEmail(request.email());
+    member.setRoleId(request.roleId());
     return toResponse(memberService.update(id, member));
   }
 
@@ -62,6 +64,6 @@ public class MemberController {
   }
 
   private static MemberResponse toResponse(Member member) {
-    return new MemberResponse(member.getId(), member.getName(), member.getEmail());
+    return new MemberResponse(member.getId(), member.getName(), member.getEmail(), member.getRoleId());
   }
 }

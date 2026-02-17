@@ -142,7 +142,7 @@ public class LoanService {
 
   private Member getMember(Long id) {
     List<Map<String, Object>> rows = sqlAdapterClient.query(
-        "select id, name, email from members where id = :id",
+        "select id, name, email, role_id from members where id = :id",
         Map.of("id", id)
     );
     if (rows.isEmpty()) {
@@ -153,6 +153,7 @@ public class LoanService {
     member.setId(toLong(row, "id"));
     member.setName(toString(row, "name"));
     member.setEmail(toString(row, "email"));
+    member.setRoleId(toLong(row, "role_id"));
     return member;
   }
 

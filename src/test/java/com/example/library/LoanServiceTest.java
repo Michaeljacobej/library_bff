@@ -38,6 +38,7 @@ class LoanServiceTest {
     Member member = new Member();
     member.setName("Alice");
     member.setEmail("alice@example.com");
+      member.setRoleId(3L);
     Member createdMember = memberService.create(member);
 
     Loan loan = loanService.borrow(createdBook.getId(), createdMember.getId());
@@ -64,6 +65,7 @@ class LoanServiceTest {
     Member member = new Member();
     member.setName("Bob");
     member.setEmail("bob@example.com");
+      member.setRoleId(3L);
     Member createdMember = memberService.create(member);
 
     loanService.borrow(createdBook.getId(), createdMember.getId());
@@ -88,6 +90,7 @@ class LoanServiceTest {
     Member member = new Member();
     member.setName("Carol");
     member.setEmail("carol@example.com");
+      member.setRoleId(3L);
     Member createdMember = memberService.create(member);
 
     Map<String, Object> params = new HashMap<>();
