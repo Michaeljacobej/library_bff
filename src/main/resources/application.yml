@@ -1,0 +1,22 @@
+server:
+  port: 8080
+
+app:
+  borrowing:
+    maxActiveLoansPerMember: 5
+    maxLoanDays: 14
+  sql-adapter:
+    base-url: http://localhost:8081
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+
+logging:
+  level:
+    root: info
