@@ -1,0 +1,33 @@
+server:
+  port: 8080
+
+app:
+  borrowing:
+    maxActiveLoansPerMember: 5
+    maxLoanDays: 14
+  security:
+    jwt:
+      secret: abcde1234567890
+      expiration: 2m
+      issuer: library-bff
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/postgres
+    username: postgres
+    password: postgres
+  flyway:
+    enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+
+logging:
+  level:
+    root: info
