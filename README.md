@@ -1,13 +1,16 @@
 # library_bff
 
-Self-contained Java microservice for managing a library catalog, members, and loans.
+Library microservice for books, members, and loans. All persistence goes through the sql_adapter service.
 
 ## Features
 
-- Books, members, and loans REST APIs
+- Books, members, loans, reservations
 - Borrowing rules enforced in service layer configuration
-- Persistence delegated to sql_adapter service
-- Basic authentication with in-memory users
+- SQL adapter integration for all reads and writes
+- JWT authentication and role-based access control
+- Audit log API (read-only)
+- Loan history search
+- Soft deletes for books and members
 - Observability via Spring Boot Actuator
 - OpenAPI documentation via springdoc
 
@@ -19,7 +22,7 @@ Self-contained Java microservice for managing a library catalog, members, and lo
 
 ## Configuration
 
-Borrowing rules live in [src/main/resources/application.yml](src/main/resources/application.yml):
+Borrowing rules and adapter settings live in [src/main/resources/application.yml](src/main/resources/application.yml):
 
 ```yaml
 app:
@@ -28,6 +31,12 @@ app:
 		maxLoanDays: 14
 	sql-adapter:
 		base-url: http://localhost:8081
+		base-path: /api
+	security:
+		jwt:
+			secret: change-me-change-me-change-me-change-me
+			expiration: 2h
+			issuer: library-bff
 ```
 
 ## Database
@@ -35,7 +44,9 @@ app:
 library_bff does not connect to a database directly. All reads and writes go through sql_adapter,
 which is responsible for database connectivity and schema migrations.
 
-Schema reference: [src/main/resources/db/migration/V1__init.sql](src/main/resources/db/migration/V1__init.sql)
+Schema reference: [src/main/resources/db/migration/V1__init.sql](src/main/resources/db/migration/V1__init.sql),
+[src/main/resources/db/migration/V2__add_roles.sql](src/main/resources/db/migration/V2__add_roles.sql),
+[src/main/resources/db/migration/V3__reservations_soft_delete.sql](src/main/resources/db/migration/V3__reservations_soft_delete.sql)
 
 ## Run
 
@@ -57,8 +68,8 @@ Obtain a JWT:
 
 ```bash
 curl -X POST http://localhost:8080/auth/login \
-	-H "Content-Type: application/json" \
-	-d '{"username":"admin","password":"admin-pass"}'
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"admin-pass"}'
 ```
 
 Use the token:
@@ -75,19 +86,19 @@ curl -H "Authorization: Bearer <token>" http://localhost:8080/api/books
 ## Example Requests
 
 ```bash
-curl -u admin:admin-pass http://localhost:8080/api/books
+curl -H "Authorization: Bearer <token>" http://localhost:8080/api/books
 ```
 
 ```bash
-curl -u librarian:librarian-pass -X POST http://localhost:8080/api/books \
-	-H "Content-Type: application/json" \
-	-d '{"title":"Clean Code","author":"Robert C. Martin","isbn":"9780132350884","totalCopies":3,"availableCopies":3}'
+curl -H "Authorization: Bearer <token>" -X POST http://localhost:8080/api/books \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Clean Code","author":"Robert C. Martin","isbn":"9780132350884","totalCopies":3,"availableCopies":3}'
 ```
 
 ```bash
-curl -u member:member-pass -X POST http://localhost:8080/api/loans/borrow \
-	-H "Content-Type: application/json" \
-	-d '{"bookId":1,"memberId":1}'
+curl -H "Authorization: Bearer <token>" -X POST http://localhost:8080/api/loans/borrow \
+  -H "Content-Type: application/json" \
+  -d '{"bookId":1,"memberId":1}'
 ```
 
 ## Observability
@@ -95,3 +106,27 @@ curl -u member:member-pass -X POST http://localhost:8080/api/loans/borrow \
 - Health: `http://localhost:8080/actuator/health`
 - Metrics: `http://localhost:8080/actuator/metrics`
 - Prometheus: `http://localhost:8080/actuator/prometheus`
+
+## Audit Log API
+
+```bash
+curl -H "Authorization: Bearer <token>" \
+	"http://localhost:8080/api/audit-logs?user=admin&from=2026-02-01T00:00:00Z&to=2026-02-28T23:59:59Z"
+```
+
+## Loan History Search
+
+```bash
+curl -H "Authorization: Bearer <token>" \
+	"http://localhost:8080/api/loans/search?memberId=1&status=OVERDUE"
+```
+
+## Reservations
+
+When a book has no available copies, a reservation is created automatically on borrow. You can also create one:
+
+```bash
+curl -H "Authorization: Bearer <token>" -X POST http://localhost:8080/api/reservations \
+	-H "Content-Type: application/json" \
+	-d '{"bookId":1,"memberId":1}'
+```
