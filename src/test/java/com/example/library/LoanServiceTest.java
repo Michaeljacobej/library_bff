@@ -14,12 +14,15 @@ import java.util.HashMap;
 import java.util.Map;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 class LoanServiceTest {
   private final InMemorySqlAdapterClient adapter = new InMemorySqlAdapterClient();
   private final BorrowingProperties properties = new BorrowingProperties();
   private final BookService bookService = new BookService(adapter);
-  private final MemberService memberService = new MemberService(adapter);
+  private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+  private final MemberService memberService = new MemberService(adapter, passwordEncoder);
   private final LoanService loanService = new LoanService(properties, adapter);
 
   @Test
@@ -38,7 +41,8 @@ class LoanServiceTest {
     Member member = new Member();
     member.setName("Alice");
     member.setEmail("alice@example.com");
-      member.setRoleId(3L);
+    member.setRoleId(3L);
+    member.setPassword("member-pass");
     Member createdMember = memberService.create(member);
 
     Loan loan = loanService.borrow(createdBook.getId(), createdMember.getId());
@@ -65,7 +69,8 @@ class LoanServiceTest {
     Member member = new Member();
     member.setName("Bob");
     member.setEmail("bob@example.com");
-      member.setRoleId(3L);
+    member.setRoleId(3L);
+    member.setPassword("member-pass");
     Member createdMember = memberService.create(member);
 
     loanService.borrow(createdBook.getId(), createdMember.getId());
@@ -90,7 +95,8 @@ class LoanServiceTest {
     Member member = new Member();
     member.setName("Carol");
     member.setEmail("carol@example.com");
-      member.setRoleId(3L);
+    member.setRoleId(3L);
+    member.setPassword("member-pass");
     Member createdMember = memberService.create(member);
 
     Map<String, Object> params = new HashMap<>();

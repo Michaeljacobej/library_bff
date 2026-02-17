@@ -5,14 +5,18 @@ import com.example.library.sqladapter.SqlAdapterClient;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 @Service
 public class MemberService {
   private final SqlAdapterClient sqlAdapterClient;
+  private final PasswordEncoder passwordEncoder;
 
-  public MemberService(SqlAdapterClient sqlAdapterClient) {
+  public MemberService(SqlAdapterClient sqlAdapterClient, PasswordEncoder passwordEncoder) {
     this.sqlAdapterClient = sqlAdapterClient;
+    this.passwordEncoder = passwordEncoder;
   }
 
   public List<Member> list() {
@@ -41,13 +45,16 @@ public class MemberService {
       throw new BusinessRuleException("Email already exists");
     }
     Long roleId = requireRoleId(member.getRoleId());
+    String passwordHash = requirePasswordHash(member.getPassword());
     Map<String, Object> params = new HashMap<>();
     params.put("name", member.getName());
     params.put("email", member.getEmail());
     params.put("roleId", roleId);
+    params.put("passwordHash", passwordHash);
 
     int rows = sqlAdapterClient.execute(
-        "insert into members (name, email, role_id) values (:name, :email, :roleId)",
+      "insert into members (name, email, role_id, password_hash) "
+        + "values (:name, :email, :roleId, :passwordHash)",
         params
     );
     if (rows <= 0) {
@@ -68,11 +75,22 @@ public class MemberService {
     params.put("name", update.getName());
     params.put("email", update.getEmail());
     params.put("roleId", roleId);
+    String newPasswordHash = hashIfPresent(update.getPassword());
 
-    int rows = sqlAdapterClient.execute(
+    int rows;
+    if (newPasswordHash != null) {
+      params.put("passwordHash", newPasswordHash);
+      rows = sqlAdapterClient.execute(
+        "update members set name = :name, email = :email, role_id = :roleId, "
+          + "password_hash = :passwordHash where id = :id",
+        params
+      );
+    } else {
+      rows = sqlAdapterClient.execute(
         "update members set name = :name, email = :email, role_id = :roleId where id = :id",
         params
-    );
+      );
+    }
     if (rows <= 0) {
       throw new NotFoundException("Member not found");
     }
@@ -130,6 +148,20 @@ public class MemberService {
       throw new BusinessRuleException("Role not found");
     }
     return roleId;
+  }
+
+  private String requirePasswordHash(String rawPassword) {
+    if (!StringUtils.hasText(rawPassword)) {
+      throw new BusinessRuleException("password is required");
+    }
+    return passwordEncoder.encode(rawPassword);
+  }
+
+  private String hashIfPresent(String rawPassword) {
+    if (!StringUtils.hasText(rawPassword)) {
+      return null;
+    }
+    return passwordEncoder.encode(rawPassword);
   }
 
   private boolean roleExists(Long roleId) {

@@ -15,6 +15,8 @@ public class Member {
 
   private Long roleId;
 
+  private String password;
+
   public Long getId() {
     return id;
   }
@@ -45,5 +47,13 @@ public class Member {
 
   public void setRoleId(Long roleId) {
     this.roleId = roleId;
+  }
+
+  public String getPassword() {
+    return password;
+  }
+
+  public void setPassword(String password) {
+    this.password = password;
   }
 }

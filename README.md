@@ -40,6 +40,10 @@ app:
       secret: change-me-change-me-change-me-change-me
       expiration: 2h
       issuer: library-bff
+    admin:
+      name: Admin
+      email: admin@example.com
+      password: admin-pass
 ```
 
 ## Database
@@ -53,7 +57,9 @@ alter user postgres with password 'postgres';
 
 Schema reference: [src/main/resources/db/migration/V1__init.sql](src/main/resources/db/migration/V1__init.sql),
 [src/main/resources/db/migration/V2__add_roles.sql](src/main/resources/db/migration/V2__add_roles.sql),
-[src/main/resources/db/migration/V3__reservations_soft_delete.sql](src/main/resources/db/migration/V3__reservations_soft_delete.sql)
+[src/main/resources/db/migration/V3__reservations_soft_delete.sql](src/main/resources/db/migration/V3__reservations_soft_delete.sql),
+[src/main/resources/db/migration/V4__audit_log.sql](src/main/resources/db/migration/V4__audit_log.sql),
+[src/main/resources/db/migration/V5__member_password.sql](src/main/resources/db/migration/V5__member_password.sql)
 
 ## Run
 
@@ -74,13 +80,21 @@ Obtain a JWT:
 ```bash
 curl -X POST http://localhost:8080/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"admin-pass"}'
+  -d '{"username":"admin@example.com","password":"admin-pass"}'
 ```
 
 Use the token:
 
 ```bash
 curl -H "Authorization: Bearer <token>" http://localhost:8080/api/books
+
+Member create requests require a password so the user can log in:
+
+```bash
+curl -H "Authorization: Bearer <token>" -X POST http://localhost:8080/api/members \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Alice","email":"alice@example.com","roleId":3,"password":"member-pass"}'
+```
 ```
 
 ## API Documentation

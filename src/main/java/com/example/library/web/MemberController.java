@@ -44,6 +44,7 @@ public class MemberController {
     member.setName(request.name());
     member.setEmail(request.email());
     member.setRoleId(request.roleId());
+    member.setPassword(request.password());
     return toResponse(memberService.create(member));
   }
 
@@ -54,6 +55,7 @@ public class MemberController {
     member.setName(request.name());
     member.setEmail(request.email());
     member.setRoleId(request.roleId());
+    member.setPassword(request.password());
     return toResponse(memberService.update(id, member));
   }
 

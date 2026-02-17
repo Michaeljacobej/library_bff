@@ -7,9 +7,13 @@ app:
     maxLoanDays: 14
   security:
     jwt:
-      secret: abcde1234567890
+      secret: change-me-change-me-change-me-change-me-secret-key-32-chars
       expiration: 2m
       issuer: library-bff
+    admin:
+      name: Admin
+      email: admin@example.com
+      password: admin-pass
 
 spring:
   datasource:
@@ -18,6 +22,7 @@ spring:
     password: postgres
   flyway:
     enabled: true
+    baseline-on-migrate: true
 
 management:
   endpoints:
@@ -31,3 +36,5 @@ management:
 logging:
   level:
     root: info
+    com.example.library.security: debug
+    org.springframework.security: debug

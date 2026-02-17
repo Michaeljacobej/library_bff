@@ -1,4 +1,4 @@
-create table audit_log (
+create table if not exists audit_log (
   id bigserial primary key,
   user_name varchar(255),
   sql_text text,
@@ -8,4 +8,4 @@ create table audit_log (
   error_message text
 );
 
-create index idx_audit_log_user_time on audit_log (user_name, executed_at);
+create index if not exists idx_audit_log_user_time on audit_log (user_name, executed_at);

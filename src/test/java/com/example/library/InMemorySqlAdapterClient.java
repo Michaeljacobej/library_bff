@@ -96,6 +96,7 @@ class InMemorySqlAdapterClient implements SqlAdapterClient {
       row.put("name", params.get("name"));
       row.put("email", params.get("email"));
       row.put("role_id", params.get("roleId"));
+      row.put("password_hash", params.get("passwordHash"));
       members.put(id, row);
       return 1;
     }
@@ -109,6 +110,9 @@ class InMemorySqlAdapterClient implements SqlAdapterClient {
       row.put("name", params.get("name"));
       row.put("email", params.get("email"));
       row.put("role_id", params.get("roleId"));
+      if (normalized.contains("password_hash")) {
+        row.put("password_hash", params.get("passwordHash"));
+      }
       return 1;
     }
 
@@ -177,6 +181,24 @@ class InMemorySqlAdapterClient implements SqlAdapterClient {
       return new ArrayList<>(members.values());
     }
 
+    if (normalized.startsWith("select m.email, m.password_hash")) {
+      String email = String.valueOf(params.get("email"));
+      List<Map<String, Object>> memberRows = findBy(members, "email", email);
+      if (memberRows.isEmpty()) {
+        return List.of();
+      }
+      Map<String, Object> member = memberRows.get(0);
+      Long roleId = toLong(member.get("role_id"));
+      Map<String, Object> role = roles.get(roleId);
+      Map<String, Object> result = new HashMap<>();
+      result.put("email", member.get("email"));
+      result.put("password_hash", member.get("password_hash"));
+      if (role != null) {
+        result.put("role_name", role.get("name"));
+      }
+      return List.of(result);
+    }
+
     if (normalized.startsWith("select id from roles")) {
       if (normalized.contains("where name")) {
         String name = String.valueOf(params.get("name"));
@@ -192,6 +214,12 @@ class InMemorySqlAdapterClient implements SqlAdapterClient {
       String email = String.valueOf(params.get("email"));
       List<Map<String, Object>> rows = findBy(members, "email", email);
       return rows.stream().map(this::onlyId).toList();
+    }
+
+    if (normalized.startsWith("select id, password_hash from members")) {
+      String email = String.valueOf(params.get("email"));
+      List<Map<String, Object>> rows = findBy(members, "email", email);
+      return rows.stream().map(this::onlyIdAndPassword).toList();
     }
 
     if (normalized.startsWith("select id, book_id, member_id")) {
@@ -257,6 +285,13 @@ class InMemorySqlAdapterClient implements SqlAdapterClient {
   private Map<String, Object> onlyId(Map<String, Object> row) {
     Map<String, Object> result = new HashMap<>();
     result.put("id", row.get("id"));
+    return result;
+  }
+
+  private Map<String, Object> onlyIdAndPassword(Map<String, Object> row) {
+    Map<String, Object> result = new HashMap<>();
+    result.put("id", row.get("id"));
+    result.put("password_hash", row.get("password_hash"));
     return result;
   }
 
