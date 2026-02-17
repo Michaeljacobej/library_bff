@@ -21,7 +21,7 @@ public class SqlAdapterHealthIndicator implements HealthIndicator {
 
   @Override
   public Health health() {
-    String url = properties.getBaseUrl() + "/health";
+    String url = buildUrl("/health");
     try {
       ResponseEntity<Map> response = restTemplate.postForEntity(url, null, Map.class);
       if (response.getStatusCode().is2xxSuccessful()) {
@@ -32,5 +32,29 @@ public class SqlAdapterHealthIndicator implements HealthIndicator {
     } catch (Exception ex) {
       return Health.down(ex).build();
     }
+  }
+
+  private String buildUrl(String path) {
+    String base = properties.getBaseUrl();
+    String basePath = properties.getBasePath();
+    return joinUrl(joinUrl(base, basePath), path);
+  }
+
+  private String joinUrl(String left, String right) {
+    if (left == null || left.isBlank()) {
+      return right == null ? "" : right;
+    }
+    if (right == null || right.isBlank()) {
+      return left;
+    }
+    boolean leftSlash = left.endsWith("/");
+    boolean rightSlash = right.startsWith("/");
+    if (leftSlash && rightSlash) {
+      return left + right.substring(1);
+    }
+    if (!leftSlash && !rightSlash) {
+      return left + "/" + right;
+    }
+    return left + right;
   }
 }

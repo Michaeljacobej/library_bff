@@ -28,7 +28,7 @@ public class HttpSqlAdapterClient implements SqlAdapterClient {
 
   @Override
   public int execute(String sql, Map<String, Object> params) {
-    String url = properties.getBaseUrl() + "/execute";
+    String url = buildUrl("/execute");
     SqlAdapterExecuteRequest request = new SqlAdapterExecuteRequest(sql, params);
 
     HttpHeaders headers = new HttpHeaders();
@@ -45,7 +45,7 @@ public class HttpSqlAdapterClient implements SqlAdapterClient {
 
   @Override
   public List<Map<String, Object>> query(String sql, Map<String, Object> params) {
-    String url = properties.getBaseUrl() + "/query";
+    String url = buildUrl("/query");
     SqlAdapterQueryRequest request = new SqlAdapterQueryRequest(sql, params);
 
     HttpHeaders headers = new HttpHeaders();
@@ -61,6 +61,30 @@ public class HttpSqlAdapterClient implements SqlAdapterClient {
     );
 
     return Optional.ofNullable(response.getBody()).orElseGet(List::of);
+  }
+
+  private String buildUrl(String path) {
+    String base = properties.getBaseUrl();
+    String basePath = properties.getBasePath();
+    return joinUrl(joinUrl(base, basePath), path);
+  }
+
+  private String joinUrl(String left, String right) {
+    if (left == null || left.isBlank()) {
+      return right == null ? "" : right;
+    }
+    if (right == null || right.isBlank()) {
+      return left;
+    }
+    boolean leftSlash = left.endsWith("/");
+    boolean rightSlash = right.startsWith("/");
+    if (leftSlash && rightSlash) {
+      return left + right.substring(1);
+    }
+    if (!leftSlash && !rightSlash) {
+      return left + "/" + right;
+    }
+    return left + right;
   }
 
   private String actor() {
