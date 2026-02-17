@@ -1,12 +1,12 @@
 # library_bff
 
-Library microservice for books, members, and loans. All persistence goes through the sql_adapter service.
+Library microservice for books, members, and loans backed by PostgreSQL.
 
 ## Features
 
 - Books, members, loans, reservations
 - Borrowing rules enforced in service layer configuration
-- SQL adapter integration for all reads and writes
+- Direct PostgreSQL persistence (JDBC + Flyway)
 - JWT authentication and role-based access control
 - Audit log API (read-only)
 - Loan history search
@@ -18,39 +18,44 @@ Library microservice for books, members, and loans. All persistence goes through
 
 - Java 17
 - Maven 3.9+
-- Running sql_adapter service (with its own database)
+- PostgreSQL
 
 ## Configuration
 
-Borrowing rules and adapter settings live in [src/main/resources/application.yml](src/main/resources/application.yml):
+Borrowing rules and database settings live in [src/main/resources/application.yml](src/main/resources/application.yml):
 
 ```yaml
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/postgres
+    username: postgres
+    password: postgres
+
 app:
-	borrowing:
-		maxActiveLoansPerMember: 5
-		maxLoanDays: 14
-	sql-adapter:
-		base-url: http://localhost:8081
-		base-path: /api
-	security:
-		jwt:
-			secret: change-me-change-me-change-me-change-me
-			expiration: 2h
-			issuer: library-bff
+  borrowing:
+    maxActiveLoansPerMember: 5
+    maxLoanDays: 14
+  security:
+    jwt:
+      secret: change-me-change-me-change-me-change-me
+      expiration: 2h
+      issuer: library-bff
 ```
 
 ## Database
 
-library_bff does not connect to a database directly. All reads and writes go through sql_adapter,
-which is responsible for database connectivity and schema migrations.
+Create a PostgreSQL database and user (or reuse the default postgres user):
+
+```sql
+create database postgres;
+alter user postgres with password 'postgres';
+```
 
 Schema reference: [src/main/resources/db/migration/V1__init.sql](src/main/resources/db/migration/V1__init.sql),
 [src/main/resources/db/migration/V2__add_roles.sql](src/main/resources/db/migration/V2__add_roles.sql),
 [src/main/resources/db/migration/V3__reservations_soft_delete.sql](src/main/resources/db/migration/V3__reservations_soft_delete.sql)
 
 ## Run
-
-Start sql_adapter separately (default: http://localhost:8081), then run:
 
 ```bash
 mvn spring-boot:run
